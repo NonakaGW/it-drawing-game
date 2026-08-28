@@ -464,3 +464,86 @@ h2 {
     padding: 16px;
   }
 }
+
+
+/* ========================================
+   お絵描きツール
+======================================== */
+
+.drawing-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 18px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--soft);
+}
+
+.toolbar-section {
+  display: grid;
+  gap: 7px;
+}
+
+.toolbar-label {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.toolbar-submit {
+  margin-left: auto;
+}
+
+.toolbar-submit .primary-button {
+  margin-top: 0;
+}
+
+.color-group {
+  align-items: center;
+}
+
+.color-button {
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 3px solid #ffffff;
+  border-radius: 999px;
+  background: var(--button-color);
+  box-shadow:
+    0 0 0 1px #cbd3df,
+    0 2px 5px rgba(17, 24, 39, 0.08);
+}
+
+.color-button:hover {
+  transform: scale(1.06);
+}
+
+.color-button.active {
+  box-shadow:
+    0 0 0 3px var(--strong),
+    0 2px 5px rgba(17, 24, 39, 0.1);
+}
+
+#eraser-button.active {
+  border-color: var(--strong);
+  background: var(--strong);
+  color: #ffffff;
+}
+
+@media (max-width: 720px) {
+  .drawing-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .toolbar-submit {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .toolbar-submit .primary-button {
+    width: 100%;
+  }
+}
