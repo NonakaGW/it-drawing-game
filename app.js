@@ -281,7 +281,7 @@ function enterRoom(roomCode) {
     (snapshot) => {
       if (!snapshot.exists()) {
         clearSavedSession();
-        renderHome("部屋が削除されました。");
+        renderHome("部屋が解散されました。");
         return;
       }
 
@@ -363,6 +363,11 @@ function renderLobby() {
       </div>
       <div class="room-head-actions">
         <button id="copy-code-button" class="secondary-button">コードをコピー</button>
+        ${
+          host
+            ? `<button id="disband-room-button" class="danger-button">部屋を解散</button>`
+            : ""
+        }
       </div>
     </div>
 
@@ -401,6 +406,9 @@ function renderLobby() {
   });
 
   if (host) {
+    document.querySelector("#disband-room-button")?.addEventListener("click", disbandRoom);
+
+
     document.querySelector("#start-button").addEventListener("click", async () => {
       const error = document.querySelector("#lobby-error");
       const button = document.querySelector("#start-button");
@@ -474,63 +482,28 @@ async function startRound() {
 
   const order = shuffle(players.map((player) => player.id));
   const word = WORDS[Math.floor(Math.random() * WORDS.length)];
-
   const roomRef = doc(db, "rooms", currentRoomCode);
+  const secretRef = doc(db, "rooms", currentRoomCode, "secret", "prompt");
+  const turnsRef = collection(db, "rooms", currentRoomCode, "turns");
 
-  const secretRef = doc(
-    db,
-    "rooms",
-    currentRoomCode,
-    "secret",
-    "prompt"
-  );
-
-  const turnsRef = collection(
-    db,
-    "rooms",
-    currentRoomCode,
-    "turns"
-  );
-
-  // 2ゲーム目以降だけ、前回の絵を取得して削除する
-  let oldTurns = [];
-
-  if (currentRoom.status === "finished") {
-    const oldTurnsSnapshot = await getDocs(turnsRef);
-    oldTurns = oldTurnsSnapshot.docs;
-  }
-
+  const oldTurns = await getDocs(turnsRef);
   const batch = writeBatch(db);
 
-  // 前回の絵を削除
-  oldTurns.forEach((turnDoc) => {
-    batch.delete(turnDoc.ref);
-  });
+  oldTurns.forEach((turnDoc) => batch.delete(turnDoc.ref));
 
-  // プレイヤーの順番を更新
   players.forEach((player) => {
     batch.update(
-      doc(
-        db,
-        "rooms",
-        currentRoomCode,
-        "players",
-        player.id
-      ),
-      {
-        order: order.indexOf(player.id)
-      }
+      doc(db, "rooms", currentRoomCode, "players", player.id),
+      { order: order.indexOf(player.id) }
     );
   });
 
-  // 今回のお題
   batch.set(secretRef, {
     word,
     firstPlayerUid: order[0],
     round: (currentRoom.round ?? 0) + 1
   });
 
-  // ゲーム開始
   batch.update(roomRef, {
     status: "playing",
     playerCount: players.length,
@@ -1211,6 +1184,15 @@ function renderGameTopbar(showTimer = true) {
     : "-";
 
   const total = currentRoom.playerOrder?.length ?? currentPlayers.length;
+  const host = currentRoom.hostUid === currentUser.uid;
+
+  // innerHTMLで画面を描き直した直後に、ホスト用「部屋を解散」ボタンへ
+  // 共通イベントを付けるため、次のイベントループでバインドする。
+  queueMicrotask(() => {
+    document
+      .querySelector("#disband-room-button")
+      ?.addEventListener("click", disbandRoom);
+  });
 
   return `
     <div class="game-topbar">
@@ -1220,9 +1202,86 @@ function renderGameTopbar(showTimer = true) {
       </div>
       <div>
         ${showTimer ? `<span id="main-timer" class="timer">--秒</span>` : ""}
+        ${
+          host
+            ? `<button id="disband-room-button" class="danger-button">部屋を解散</button>`
+            : ""
+        }
       </div>
     </div>
   `;
+}
+
+async function disbandRoom() {
+  if (!currentRoomCode || !currentRoom) return;
+
+  if (currentRoom.hostUid !== currentUser.uid) {
+    return;
+  }
+
+  const confirmed = window.confirm(
+    "ゲームを終了して部屋を解散します。\n参加者全員がトップ画面に戻ります。\nよろしいですか？"
+  );
+
+  if (!confirmed) return;
+
+  clearActiveTimer();
+
+  document
+    .querySelectorAll("button")
+    .forEach((button) => {
+      button.disabled = true;
+    });
+
+  try {
+    const roomCode = currentRoomCode;
+    const roomRef = doc(db, "rooms", roomCode);
+    const secretRef = doc(db, "rooms", roomCode, "secret", "prompt");
+    const batch = writeBatch(db);
+
+    // 参加者は最大10人なので、現在取得済みのプレイヤーを削除。
+    currentPlayers.forEach((player) => {
+      batch.delete(
+        doc(db, "rooms", roomCode, "players", player.id)
+      );
+    });
+
+    // turns は途中ゲームでも最大9枚程度。
+    // Firestore Rules上、ホストが途中でturns一覧を読む必要がないよう、
+    // 存在の有無に関係なく既知のIDを削除対象にする。
+    for (let i = 0; i < MAX_PLAYERS; i += 1) {
+      batch.delete(
+        doc(db, "rooms", roomCode, "turns", String(i))
+      );
+    }
+
+    // お題も削除。
+    batch.delete(secretRef);
+
+    // 最後に部屋本体を削除。
+    batch.delete(roomRef);
+
+    await batch.commit();
+
+    clearSavedSession();
+    cleanupRoomListeners();
+    currentRoomCode = null;
+    currentRoom = null;
+    currentPlayers = [];
+    lastRenderedKey = "";
+
+    renderHome("部屋を解散しました。");
+  } catch (error) {
+    console.error(error);
+
+    window.alert(
+      readableError(error)
+    );
+
+    // 失敗した場合は画面を描画し直して操作可能に戻す。
+    lastRenderedKey = "";
+    renderCurrentScreen();
+  }
 }
 
 function getPlayerById(uid) {
