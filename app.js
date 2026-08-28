@@ -474,28 +474,63 @@ async function startRound() {
 
   const order = shuffle(players.map((player) => player.id));
   const word = WORDS[Math.floor(Math.random() * WORDS.length)];
-  const roomRef = doc(db, "rooms", currentRoomCode);
-  const secretRef = doc(db, "rooms", currentRoomCode, "secret", "prompt");
-  const turnsRef = collection(db, "rooms", currentRoomCode, "turns");
 
-  const oldTurns = await getDocs(turnsRef);
+  const roomRef = doc(db, "rooms", currentRoomCode);
+
+  const secretRef = doc(
+    db,
+    "rooms",
+    currentRoomCode,
+    "secret",
+    "prompt"
+  );
+
+  const turnsRef = collection(
+    db,
+    "rooms",
+    currentRoomCode,
+    "turns"
+  );
+
+  // 2ゲーム目以降だけ、前回の絵を取得して削除する
+  let oldTurns = [];
+
+  if (currentRoom.status === "finished") {
+    const oldTurnsSnapshot = await getDocs(turnsRef);
+    oldTurns = oldTurnsSnapshot.docs;
+  }
+
   const batch = writeBatch(db);
 
-  oldTurns.forEach((turnDoc) => batch.delete(turnDoc.ref));
+  // 前回の絵を削除
+  oldTurns.forEach((turnDoc) => {
+    batch.delete(turnDoc.ref);
+  });
 
+  // プレイヤーの順番を更新
   players.forEach((player) => {
     batch.update(
-      doc(db, "rooms", currentRoomCode, "players", player.id),
-      { order: order.indexOf(player.id) }
+      doc(
+        db,
+        "rooms",
+        currentRoomCode,
+        "players",
+        player.id
+      ),
+      {
+        order: order.indexOf(player.id)
+      }
     );
   });
 
+  // 今回のお題
   batch.set(secretRef, {
     word,
     firstPlayerUid: order[0],
     round: (currentRoom.round ?? 0) + 1
   });
 
+  // ゲーム開始
   batch.update(roomRef, {
     status: "playing",
     playerCount: players.length,
