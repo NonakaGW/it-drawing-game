@@ -3,10 +3,10 @@
 // に表示される firebaseConfig に置き換えてください。
 
 export const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT_ID.firebasestorage.app",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyC-oOgdXiI_sv4asRzStGG4O9RuFmdO6a0",
+  authDomain: "it-drawing-game.firebaseapp.com",
+  projectId: "it-drawing-game",
+  storageBucket: "it-drawing-game.firebasestorage.app",
+  messagingSenderId: "802653731374",
+  appId: "1:802653731374:web:eb905ae66f4cfbc2eabdbf"
 };
