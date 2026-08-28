@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IT お絵描き伝言ゲーム</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <main class="app-shell">
+    <header class="app-header">
+      <div>
+        <p class="eyebrow">IT DRAWING TELEPHONE</p>
+        <h1>IT お絵描き伝言ゲーム</h1>
+      </div>
+      <div id="connection-status" class="status-pill">接続中...</div>
+    </header>
+
+    <section id="app" class="panel">
+      <div class="loading">Firebase に接続しています...</div>
+    </section>
+  </main>
+
+  <template id="home-template">
+    <div class="home-grid">
+      <section class="card">
+        <h2>部屋を作る</h2>
+        <p>名前を入れるだけ。部屋を作った人がホストになります。</p>
+        <label class="field-label" for="create-name">プレイヤー名</label>
+        <input id="create-name" class="text-input" type="text" maxlength="20" autocomplete="nickname" placeholder="例：野中">
+        <button id="create-room-button" class="primary-button">部屋を作る</button>
+      </section>
+
+      <section class="card">
+        <h2>部屋に参加する</h2>
+        <label class="field-label" for="join-name">プレイヤー名</label>
+        <input id="join-name" class="text-input" type="text" maxlength="20" autocomplete="nickname" placeholder="例：LEE">
+
+        <label class="field-label" for="room-code">ルームコード</label>
+        <input id="room-code" class="text-input room-code-input" type="text" maxlength="4" autocomplete="off" placeholder="ABCD">
+
+        <button id="join-room-button" class="primary-button">参加する</button>
+      </section>
+    </div>
+    <p id="home-error" class="error-message" aria-live="polite"></p>
+  </template>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
