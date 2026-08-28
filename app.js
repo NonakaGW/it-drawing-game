@@ -737,16 +737,82 @@ async function renderPreviousDrawingPreview() {
 function renderCanvasArea() {
   return `
     <div class="game-layout">
-      <div class="canvas-tools">
-        <div class="tool-group">
-          <button class="secondary-button tool-button" data-width="4">細</button>
-          <button class="secondary-button tool-button active" data-width="8">普通</button>
-          <button class="secondary-button tool-button" data-width="14">太</button>
+
+      <div class="drawing-toolbar">
+
+        <div class="toolbar-section">
+          <span class="toolbar-label">色</span>
+          <div class="tool-group color-group">
+            <button
+              class="color-button active"
+              data-color="#111111"
+              aria-label="黒"
+              title="黒"
+              style="--button-color:#111111"
+            ></button>
+
+            <button
+              class="color-button"
+              data-color="#e53935"
+              aria-label="赤"
+              title="赤"
+              style="--button-color:#e53935"
+            ></button>
+
+            <button
+              class="color-button"
+              data-color="#1e88e5"
+              aria-label="青"
+              title="青"
+              style="--button-color:#1e88e5"
+            ></button>
+
+            <button
+              class="color-button"
+              data-color="#43a047"
+              aria-label="緑"
+              title="緑"
+              style="--button-color:#43a047"
+            ></button>
+
+            <button
+              class="color-button"
+              data-color="#fdd835"
+              aria-label="黄"
+              title="黄"
+              style="--button-color:#fdd835"
+            ></button>
+          </div>
         </div>
-        <div class="tool-group">
-          <button id="clear-canvas-button" class="secondary-button">全部消す</button>
-          <button id="submit-drawing-button" class="primary-button">この絵で決定</button>
+
+        <div class="toolbar-section">
+          <span class="toolbar-label">太さ</span>
+          <div class="tool-group">
+            <button class="secondary-button tool-button" data-width="4">細</button>
+            <button class="secondary-button tool-button active" data-width="8">普通</button>
+            <button class="secondary-button tool-button" data-width="14">太</button>
+          </div>
         </div>
+
+        <div class="toolbar-section">
+          <span class="toolbar-label">ツール</span>
+          <div class="tool-group">
+            <button id="eraser-button" class="secondary-button tool-button">
+              消しゴム
+            </button>
+
+            <button id="clear-canvas-button" class="secondary-button">
+              全部消す
+            </button>
+          </div>
+        </div>
+
+        <div class="toolbar-section toolbar-submit">
+          <button id="submit-drawing-button" class="primary-button">
+            この絵で決定
+          </button>
+        </div>
+
       </div>
 
       <div class="canvas-wrap">
@@ -762,18 +828,34 @@ function setupCanvas() {
   const canvas = document.querySelector("#drawing-canvas");
   const context = canvas.getContext("2d");
 
+  const DEFAULT_COLOR = "#111111";
+  const ERASER_COLOR = "#ffffff";
+
+  let currentColor = DEFAULT_COLOR;
+  let currentWidth = 8;
+  let eraserMode = false;
+
   context.fillStyle = "#ffffff";
   context.fillRect(0, 0, canvas.width, canvas.height);
-  context.strokeStyle = "#111111";
-  context.lineWidth = 8;
+  context.strokeStyle = currentColor;
+  context.lineWidth = currentWidth;
   context.lineCap = "round";
   context.lineJoin = "round";
 
   let drawing = false;
   let lastPoint = null;
 
+  const applyBrush = () => {
+    context.strokeStyle = eraserMode
+      ? ERASER_COLOR
+      : currentColor;
+
+    context.lineWidth = currentWidth;
+  };
+
   const pointFromEvent = (event) => {
     const rect = canvas.getBoundingClientRect();
+
     return {
       x: ((event.clientX - rect.left) / rect.width) * canvas.width,
       y: ((event.clientY - rect.top) / rect.height) * canvas.height
@@ -783,7 +865,10 @@ function setupCanvas() {
   canvas.addEventListener("pointerdown", (event) => {
     drawing = true;
     lastPoint = pointFromEvent(event);
+
     canvas.setPointerCapture(event.pointerId);
+
+    applyBrush();
 
     // 点だけ描いた場合にも線が残るようにする。
     context.beginPath();
@@ -796,10 +881,14 @@ function setupCanvas() {
     if (!drawing) return;
 
     const point = pointFromEvent(event);
+
+    applyBrush();
+
     context.beginPath();
     context.moveTo(lastPoint.x, lastPoint.y);
     context.lineTo(point.x, point.y);
     context.stroke();
+
     lastPoint = point;
   });
 
@@ -811,20 +900,74 @@ function setupCanvas() {
   canvas.addEventListener("pointerup", stopDrawing);
   canvas.addEventListener("pointercancel", stopDrawing);
 
+  // -----------------------------
+  // 色
+  // -----------------------------
+
+  document.querySelectorAll("[data-color]").forEach((button) => {
+    button.addEventListener("click", () => {
+      currentColor = button.dataset.color;
+      eraserMode = false;
+
+      document.querySelectorAll("[data-color]").forEach((item) => {
+        item.classList.toggle("active", item === button);
+      });
+
+      document
+        .querySelector("#eraser-button")
+        ?.classList.remove("active");
+
+      applyBrush();
+    });
+  });
+
+  // -----------------------------
+  // 太さ
+  // -----------------------------
+
   document.querySelectorAll("[data-width]").forEach((button) => {
     button.addEventListener("click", () => {
-      context.lineWidth = Number(button.dataset.width);
+      currentWidth = Number(button.dataset.width);
 
       document.querySelectorAll("[data-width]").forEach((item) => {
         item.classList.toggle("active", item === button);
       });
+
+      applyBrush();
     });
   });
 
+  // -----------------------------
+  // 消しゴム
+  // -----------------------------
+
+  document.querySelector("#eraser-button").addEventListener("click", (event) => {
+    eraserMode = !eraserMode;
+
+    event.currentTarget.classList.toggle(
+      "active",
+      eraserMode
+    );
+
+    applyBrush();
+  });
+
+  // -----------------------------
+  // 全消去
+  // -----------------------------
+
   document.querySelector("#clear-canvas-button").addEventListener("click", () => {
+    context.save();
     context.fillStyle = "#ffffff";
     context.fillRect(0, 0, canvas.width, canvas.height);
+    context.restore();
+
+    applyBrush();
   });
+
+  // -----------------------------
+  // 提出
+  // -----------------------------
 
   document.querySelector("#submit-drawing-button").addEventListener("click", () => {
     submitDrawing();
